@@ -1,16 +1,19 @@
 import telebot
+from flask import Flask, request
 import os
 import json
 import subprocess
 import re
-import glob  # 🛠 MUHIM: glob moduli kerak!
+import glob
 
 BOT_TOKEN = '7888086912:AAHj22J_7oGMk61WMiZcdw3InNsD3botpaA'
 CHANNEL_USERNAME = '@vddownloaderuzbot'
 ADMIN_ID = 5718626045
 DOWNLOAD_DIR = 'downloads'
+WEBHOOK_URL = 'https://vddownloader-bot.onrender.com/'  # Bu yerga o'zingning render domening
 
 bot = telebot.TeleBot(BOT_TOKEN)
+app = Flask(__name__)
 
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
@@ -127,5 +130,21 @@ def user_list(message):
     msg = '\n'.join([f"{i+1}. {uid}" for i, uid in enumerate(users)])
     bot.send_message(message.chat.id, f"📋 Foydalanuvchilar ro'yxati:\n{msg}")
 
-print("🤖 Bot ishga tushdi!")
-bot.infinity_polling()
+# === Webhook Flask ===
+@app.route('/', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_str = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+        return '', 200
+    return '', 403
+
+@app.before_first_request
+def setup_webhook():
+    bot.remove_webhook()
+    bot.set_webhook(WEBHOOK_URL)
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
